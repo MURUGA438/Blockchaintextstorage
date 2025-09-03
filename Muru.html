@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blockchain Text Storage (Responsive)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.8.0/web3.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #3b82f6;
+      --radius: 14px;
+      --gap: 14px;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f7faff;
+        --card: #ffffff;
+        --text: #111827;
+        --muted: #6b7280;
+        --accent: #2563eb;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 600px;
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.25);
+      display: grid;
+      gap: var(--gap);
+    }
+
+    h2 { margin: 0 0 8px; font-size: 1.6rem; }
+
+    .stack { display: grid; gap: var(--gap); }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid var(--muted);
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--text);
+    }
+
+    button {
+      appearance: none;
+      border: none;
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      transition: background .2s ease, transform .05s ease;
+    }
+    button:hover { filter: brightness(1.1); }
+    button:active { transform: scale(.97); }
+
+    .info { font-size: 14px; color: var(--muted); }
+    .output {
+      padding: 10px;
+      border: 1px dashed var(--muted);
+      border-radius: var(--radius);
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Blockchain Text Storage</h2>
+
+    <div class="stack">
+      <button onclick="connectToBlockchain()">Connect to MetaMask</button>
+      <p class="info"><strong>Wallet Address:</strong> <span id="walletAddress">Not connected</span></p>
+    </div>
+
+    <div class="stack">
+      <div class="row">
+        <input type="text" id="textInput" placeholder="Enter text here" />
+        <button onclick="storeText()">Store</button>
+      </div>
+      <button onclick="getText()">Retrieve Text</button>
+    </div>
+
+    <div class="stack">
+      <p class="info"><strong>Stored Text:</strong></p>
+      <div id="storedText" class="output">None</div>
+    </div>
+  </div>
+
+  <script>
+    let web3;
+    let contract;
+    let account;
+
+    let contractAddress = "0x47ae787c657e240a0eff7b22f0446ac9930963c2";
+    let contractABI = [
+      {
+        "constant": false,
+        "inputs": [{"name": "_text", "type": "string"}],
+        "name": "storeText",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "constant": true,
+        "inputs": [],
+        "name": "getText",
+        "outputs": [{"name": "", "type": "string"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ];
+
+    async function connectToBlockchain() {
+      if (window.ethereum) {
+        web3 = new Web3(window.ethereum);
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          account = accounts[0];
+          document.getElementById("walletAddress").innerText = account;
+          contract = new web3.eth.Contract(contractABI, contractAddress);
+          alert("Connected to MetaMask!");
+        } catch (error) {
+          console.error("User denied account access", error);
+        }
+      } else {
+        alert("Please install MetaMask!");
+      }
+    }
+
+    async function storeText() {
+      if (!account) {
+        alert("Please connect to MetaMask first!");
+        return;
+      }
+
+      let text = document.getElementById("textInput").value;
+      if (!text) {
+        alert("Enter some text!");
+        return;
+      }
+
+      contract.methods.storeText(text).send({ from: account })
+        .on("transactionHash", function (hash) {
+          alert("Transaction sent! Hash: " + hash);
+        })
+        .on("receipt", function (receipt) {
+          alert("Text stored successfully!");
+          document.getElementById("textInput").value = "";
+        })
+        .on("error", function (error) {
+          console.error("Error:", error);
+          alert("Transaction failed.");
+        });
+    }
+
+    async function getText() {
+      if (!account) {
+        alert("Please connect to MetaMask first!");
+        return;
+      }
+
+      try {
+        let storedText = await contract.methods.getText().call();
+        document.getElementById("storedText").innerText = storedText || "None";
+      } catch (error) {
+        console.error("Error retrieving text:", error);
+        alert("Failed to retrieve text.");
+      }
+    }
+  </script>
+</body>
+</html>
